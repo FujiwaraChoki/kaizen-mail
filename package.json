@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "start": "bun run src/index.tsx",
-    "dev": "bun run src/index.tsx"
+    "dev": "bun run src/index.tsx",
+    "build": "bun build ./src/index.tsx --compile --outfile kaizen-mail"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -26,6 +27,7 @@
     "mime-types": "^3.0.1",
     "nodemailer": "^7.0.5",
     "react": "^19.1.1",
+    "react-devtools-core": "^6.1.5",
     "zod": "^4.1.3"
   }
 }

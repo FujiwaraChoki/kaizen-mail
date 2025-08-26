@@ -22,7 +22,7 @@ export function MessageList({mailbox, items, onOpen, page, totalPages}: {mailbox
         />
       </Box>
       <Box marginTop={1}>
-        <Text dimColor>R refresh · n next page · p prev page · c compose · b back</Text>
+        <Text dimColor>R refresh · n next page · p prev page · c compose · o settings · b back</Text>
       </Box>
     </Box>
   )

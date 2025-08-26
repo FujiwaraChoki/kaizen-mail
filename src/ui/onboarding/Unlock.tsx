@@ -50,19 +50,6 @@ export function Unlock({onUnlock, onReset}: {onUnlock: (key: string) => void; on
           <Text dimColor>Press Enter to unlock · or press r to reset</Text>
         </Box>
       )}
-      <ResetHint onReset={onReset} />
-    </Box>
-  )
-}
-
-function ResetHint({onReset}: {onReset: () => void}) {
-  const {isRawModeSupported} = useStdin()
-  useInput((input) => {
-    if (input.toLowerCase() === 'r') onReset()
-  }, {isActive: isRawModeSupported})
-  return (
-    <Box>
-      <Text dimColor>Forgot it? Press r to re-onboard</Text>
     </Box>
   )
 }

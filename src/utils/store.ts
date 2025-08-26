@@ -28,9 +28,17 @@ export type Account = z.infer<typeof AccountSchema>
 export const ConfigSchema = z.object({
   account: AccountSchema,
   lastSelectedMailbox: z.string().optional(),
+  signature: z
+    .object({
+      enabled: z.boolean().default(true),
+      format: z.enum(['text', 'html']).default('text'),
+      content: z.string().default(''),
+    })
+    .optional(),
 })
 
 export type Config = z.infer<typeof ConfigSchema>
+export type SignatureConfig = NonNullable<Config['signature']>
 
 export function configFilePath(): string {
   const dir = path.join(os.homedir(), '.config', 'kaizen-mail')
@@ -69,4 +77,3 @@ export function getStoreSafe(encryptionKey: string) {
   void store.get('account')
   return store
 }
-

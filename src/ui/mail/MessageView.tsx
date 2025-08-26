@@ -108,8 +108,20 @@ export function MessageView({uid, client, fetcher, onBack, onReply, onForward}: 
     })()
   }, [client, uid])
 
+  // Allow going back when in error state
+  useInput((input, key) => {
+    if (!error) return
+    if (key.escape || input.toLowerCase() === 'b') onBack()
+  }, {isActive: isRawModeSupported && !!error})
+
   if (loading) return <SpinnerLine label="Loading message…" />
-  if (error) return <Text color="red">{error}</Text>
+  if (error)
+    return (
+      <Box flexDirection="column">
+        <Text color="red">{error}</Text>
+        <Text dimColor>Press b or Esc to go back</Text>
+      </Box>
+    )
   if (!msg) return null
 
   return (

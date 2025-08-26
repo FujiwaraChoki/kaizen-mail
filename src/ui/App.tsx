@@ -33,10 +33,11 @@ function InteractiveRoot() {
   }, [])
 
   useInput((input, key) => {
-    if (key.escape) {
+    // Use 'q' to quit; Esc is handled in views (e.g., compose/editor)
+    if (input.toLowerCase() === 'q') {
       exit()
     }
-    if (input === '?' && route.name !== 'help') setRoute({name: 'help'})
+    if (input === '?' && key.ctrl && route.name !== 'help') setRoute({name: 'help'})
     else if (key.return && route.name === 'help') setRoute({name: hasConfig ? 'mail' : 'onboarding'})
   })
 

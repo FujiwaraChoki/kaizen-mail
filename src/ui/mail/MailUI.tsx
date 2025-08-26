@@ -1,20 +1,22 @@
-import React, {useEffect, useMemo, useState} from 'react'
-import {Box, Text, useInput, useStdin} from 'ink'
-import {getStore} from '../../utils/store.js'
-import type {Account} from '../../utils/store.js'
-import {connectImap, fetchMessage, listMailboxes, listMessagesByUids, openMailbox, type MessageListItem, type Mailbox} from '../../mail/imap.js'
-import {SpinnerLine} from '../shared/SpinnerLine.js'
-import {MailboxList} from './MailboxList.js'
-import {MessageList} from './MessageList.js'
-import {MessageView} from './MessageView.js'
-import {Compose} from './Compose.js'
-import type {ParsedMessage} from '../../mail/imap.js'
+import React, { useEffect, useMemo, useState } from 'react'
+import { Box, Text, useInput, useStdin } from 'ink'
+import { getStore } from '../../utils/store.js'
+import type { Account, SignatureConfig } from '../../utils/store.js'
+import { connectImap, fetchMessage, listMailboxes, listMessagesByUids, openMailbox, type MessageListItem, type Mailbox } from '../../mail/imap.js'
+import { SpinnerLine } from '../shared/SpinnerLine.js'
+import { MailboxList } from './MailboxList.js'
+import { MessageList } from './MessageList.js'
+import { MessageView } from './MessageView.js'
+import { Compose } from './Compose.js'
+import type { ParsedMessage } from '../../mail/imap.js'
+import { Settings } from '../settings/Settings.js'
 
-type Screen = 'mailboxes' | 'messages' | 'reader' | 'compose'
+type Screen = 'mailboxes' | 'messages' | 'reader' | 'compose' | 'settings'
 
-export function MailUI({encryptionKey, onQuit}: {encryptionKey: string; onQuit: () => void}) {
+export function MailUI({ encryptionKey, onQuit }: { encryptionKey: string; onQuit: () => void }) {
   const store = useMemo(() => getStore(encryptionKey), [encryptionKey])
   const account = store.get('account') as Account
+  const [signature, setSignature] = useState<SignatureConfig | undefined>(() => store.get('signature') as SignatureConfig | undefined)
   const [loading, setLoading] = useState(true)
   const [client, setClient] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
@@ -26,23 +28,28 @@ export function MailUI({encryptionKey, onQuit}: {encryptionKey: string; onQuit: 
   const [page, setPage] = useState(0)
   const pageSize = 20
   const [selectedMessage, setSelectedMessage] = useState<number | null>(null)
-  const [composeInit, setComposeInit] = useState<{to?: string; subject?: string; body?: string; attachments?: {filename?: string; content?: any; path?: string; contentType?: string; cid?: string}[]} | null>(null)
+  const [composeInit, setComposeInit] = useState<{ to?: string; subject?: string; body?: string; attachments?: { filename?: string; content?: any; path?: string; contentType?: string; cid?: string }[] } | null>(null)
 
-  const {isRawModeSupported} = useStdin()
+  const { isRawModeSupported } = useStdin()
   useInput((input, key) => {
+    if (screen === 'compose' || screen === 'reader' || screen === 'settings') {
+      // Let child screens handle their own input
+      if (input.toLowerCase() === 'q') onQuit()
+      return
+    }
     if (input.toLowerCase() === 'q') onQuit()
     if (input.toLowerCase() === 'b') {
-      if (screen === 'reader') setScreen('messages')
-      else if (screen === 'messages') setScreen('mailboxes')
+      if (screen === 'messages') setScreen('mailboxes')
     }
-    if (input.toLowerCase() === 'c') setScreen('compose')
+    if (input.toLowerCase() === 'c' && screen === 'messages') setScreen('compose')
     if (input.toLowerCase() === 'r' && screen === 'messages' && selectedMailbox) void refreshMessages()
     if (input.toLowerCase() === 'n' && screen === 'messages') void nextPage()
     if (input.toLowerCase() === 'p' && screen === 'messages') void prevPage()
-  }, {isActive: isRawModeSupported})
+    if (input.toLowerCase() === 'o' && (screen === 'messages' || screen === 'mailboxes')) setScreen('settings')
+  }, { isActive: isRawModeSupported })
 
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       try {
         setLoading(true)
         const c = await connectImap(account)
@@ -52,7 +59,7 @@ export function MailUI({encryptionKey, onQuit}: {encryptionKey: string; onQuit: 
         const last = store.get('lastSelectedMailbox') || 'INBOX'
         setSelectedMailbox(last)
         await openMailbox(c, last)
-        const all = await c.search({all: true})
+        const all = await c.search({ all: true }, { uid: true })
         setUids(all)
         setPage(0)
         const pageUids = slicePage(all, 0, pageSize)
@@ -74,7 +81,7 @@ export function MailUI({encryptionKey, onQuit}: {encryptionKey: string; onQuit: 
     setError(null)
     try {
       await openMailbox(client, path)
-      const all = await client.search({all: true})
+      const all = await client.search({ all: true }, { uid: true })
       setUids(all)
       setPage(0)
       const pageUids = slicePage(all, 0, pageSize)
@@ -95,7 +102,7 @@ export function MailUI({encryptionKey, onQuit}: {encryptionKey: string; onQuit: 
     setLoading(true)
     setError(null)
     try {
-      const all = await client.search({all: true})
+      const all = await client.search({ all: true }, { uid: true })
       setUids(all)
       setPage(0)
       const pageUids = slicePage(all, 0, pageSize)
@@ -161,7 +168,7 @@ export function MailUI({encryptionKey, onQuit}: {encryptionKey: string; onQuit: 
     setScreen('compose')
   }
 
-  function openForward(msg: ParsedMessage, opts?: {attachOriginalEml?: boolean; attachments?: {filename?: string; content?: any; contentType?: string}[]}) {
+  function openForward(msg: ParsedMessage, opts?: { attachOriginalEml?: boolean; attachments?: { filename?: string; content?: any; contentType?: string }[] }) {
     const hdr = [
       '----- Forwarded message -----',
       `From: ${msg.from || ''}`,
@@ -170,7 +177,7 @@ export function MailUI({encryptionKey, onQuit}: {encryptionKey: string; onQuit: 
       `To: ${msg.to || ''}`,
       '',
     ].join('\n')
-    const init: {to?: string; subject?: string; body?: string; attachments?: {filename?: string; content?: any; contentType?: string}[]} = {
+    const init: { to?: string; subject?: string; body?: string; attachments?: { filename?: string; content?: any; contentType?: string }[] } = {
       to: '',
       subject: prefixSubject('Fwd', msg.subject),
       body: `${hdr}\n${msg.text || ''}`,
@@ -233,8 +240,8 @@ export function MailUI({encryptionKey, onQuit}: {encryptionKey: string; onQuit: 
         />
       )}
       {screen === 'compose' && (
-        <Compose 
-          account={account} 
+        <Compose
+          account={account}
           onClose={() => {
             setComposeInit(null)
             setScreen('messages')
@@ -243,13 +250,51 @@ export function MailUI({encryptionKey, onQuit}: {encryptionKey: string; onQuit: 
           initialSubject={composeInit?.subject}
           initialBody={composeInit?.body}
           initialAttachments={composeInit?.attachments}
+          signatureConfig={signature}
+          onSetSignatureEnabled={(enabled) => {
+            const next: SignatureConfig = { enabled, content: signature?.content || '', format: signature?.format || 'text' }
+            store.set('signature', next)
+            setSignature(next)
+          }}
+          onSetSignatureContent={(content, format) => {
+            const next: SignatureConfig = { enabled: true, content, format }
+            store.set('signature', next)
+            setSignature(next)
+          }}
+        />
+      )}
+      {screen === 'settings' && (
+        <Settings
+          signature={signature}
+          onClose={() => setScreen('messages')}
+          onToggleEnabled={(enabled) => {
+            const next: SignatureConfig = { enabled, content: signature?.content || '', format: signature?.format || 'text' }
+            store.set('signature', next)
+            setSignature(next)
+          }}
+          onToggleFormat={() => {
+            const nextFmt: 'text' | 'html' = (signature?.format || 'text') === 'text' ? 'html' : 'text'
+            const next: SignatureConfig = { enabled: signature?.enabled ?? true, content: signature?.content || '', format: nextFmt }
+            store.set('signature', next)
+            setSignature(next)
+          }}
+          onSetContent={(content, format) => {
+            const next: SignatureConfig = { enabled: true, content, format }
+            store.set('signature', next)
+            setSignature(next)
+          }}
+          onClear={() => {
+            const next: SignatureConfig = { enabled: false, content: '', format: 'text' }
+            store.set('signature', next)
+            setSignature(next)
+          }}
         />
       )}
     </Box>
   )
 }
 
-function Header({account}: {account: Account}) {
+function Header({ account }: { account: Account }) {
   return (
     <Box marginBottom={1} justifyContent="space-between">
       <Text color="cyan">Kaizen Mail</Text>
