@@ -1,8 +1,8 @@
-import Conf from 'conf'
-import os from 'os'
-import path from 'path'
-import fs from 'fs'
-import {z} from 'zod'
+import Conf from "conf";
+import os from "os";
+import path from "path";
+import fs from "fs";
+import { z } from "zod";
 
 export const AccountSchema = z.object({
   displayName: z.string(),
@@ -21,9 +21,9 @@ export const AccountSchema = z.object({
     user: z.string(),
     password: z.string(),
   }),
-})
+});
 
-export type Account = z.infer<typeof AccountSchema>
+export type Account = z.infer<typeof AccountSchema>;
 
 export const ConfigSchema = z.object({
   account: AccountSchema,
@@ -31,49 +31,52 @@ export const ConfigSchema = z.object({
   signature: z
     .object({
       enabled: z.boolean().default(true),
-      format: z.enum(['text', 'html']).default('text'),
-      content: z.string().default(''),
+      format: z.enum(["text", "html"]).default("text"),
+      content: z.string().default(""),
     })
     .optional(),
-})
+});
 
-export type Config = z.infer<typeof ConfigSchema>
-export type SignatureConfig = NonNullable<Config['signature']>
+export type Config = z.infer<typeof ConfigSchema>;
+export type SignatureConfig = NonNullable<Config["signature"]>;
 
 export function configFilePath(): string {
-  const dir = path.join(os.homedir(), '.config', 'kaizen-mail')
-  return path.join(dir, 'config.json')
+  const dir = path.join(os.homedir(), ".config", "kaizen-mail");
+  return path.join(dir, "config.json");
 }
 
 export function ensureConfigDir() {
-  const dir = path.dirname(configFilePath())
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, {recursive: true, mode: 0o700})
+  const dir = path.dirname(configFilePath());
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
 }
 
 export function hasExistingConfig(): boolean {
   try {
-    return fs.existsSync(configFilePath())
+    return fs.existsSync(configFilePath());
   } catch {
-    return false
+    return false;
   }
 }
 
 export function getStore(encryptionKey: string) {
-  ensureConfigDir()
+  ensureConfigDir();
   const store = new Conf<Config>({
-    projectName: 'kaizen-mail',
-    configName: 'config',
+    projectName: "kaizen-mail",
+    configName: "config",
     cwd: path.dirname(configFilePath()),
     encryptionKey,
-    fileExtension: 'json',
+    fileExtension: "json",
     serialize: (value) => JSON.stringify(value, null, 2),
-  })
-  return store
+  });
+  return store;
 }
 
 export function getStoreSafe(encryptionKey: string) {
-  const store = getStore(encryptionKey)
+  const store = getStore(encryptionKey);
   // Trigger a read to validate decryption
-  void store.get('account')
-  return store
+  void store.get("account");
+  return store;
 }
+
+// Re-export getDraftsStore from drafts.ts for convenience
+export { getDraftsStore } from "./drafts.js";
